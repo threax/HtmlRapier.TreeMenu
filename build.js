@@ -22,10 +22,10 @@ module.exports = function (rootDir, outDir, settings) {
         runners: [
             
         ],
-        output: "HtmlRapierWidgets",
+        output: "HtmlRapierTreeMenu",
         dest: outDir,
         sourceRoot: __dirname + "/src/",
-        namespace: "hr.widgets",
+        namespace: "hr.treemenu",
         concat: concat,
         minify: minify
     });
