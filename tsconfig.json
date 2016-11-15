@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "noEmitOnError": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "target": "es5",
+    "outDir": "obj/tsc",
+    "module": "amd",
+    "baseUrl": ".",
+    "paths": {
+      "hr.*": [
+        "node_modules/HtmlRapier/src/*"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "obj"
+  ],
+  "compileOnSave": true
+}

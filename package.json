@@ -1,0 +1,11 @@
+{
+  "name": "htmlrapier.treemenu",
+  "version": "1.0.0",
+  "private": false,
+  "dependencies": {
+    "htmlrapier": "^2.1.0"
+  },
+  "devDependencies": {
+    "threax-gulp-tk": "^2.0.0"
+  }
+}
