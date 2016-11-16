@@ -18,6 +18,7 @@ export interface CreateRootNodeControlsArgs {
     updateCb: () => void;
     saveUrl: string;
     parentBindings: controller.BindingCollection;
+    urlRoot: string;
 }
 
 export interface TreeMenuEditorSyncObserver {
@@ -33,8 +34,15 @@ class TreeMenuEditorSync {
         this.items.add({ saveUrl: saveUrl, itemData: itemData, bindListenerCb: bindListenerCb });
     }
 
-    fireCreateRootNodeControls(controllerElementName: string, menuData: any, updateCb: any, saveUrl: string, parentBindings: any) {
-        this.rootNodeControls.add({ controllerElementName: controllerElementName, menuData: menuData, updateCb: updateCb, saveUrl: saveUrl, parentBindings: parentBindings });
+    fireCreateRootNodeControls(controllerElementName: string, menuData: any, updateCb: any, saveUrl: string, parentBindings: any, urlRoot: string) {
+        this.rootNodeControls.add({
+            controllerElementName: controllerElementName,
+            menuData: menuData,
+            updateCb: updateCb,
+            saveUrl: saveUrl,
+            parentBindings: parentBindings,
+            urlRoot: urlRoot
+        });
     }
 
     setEditorListener(value: TreeMenuEditorSyncObserver, fireExisingEvents?: boolean) {
@@ -110,7 +118,7 @@ export class TreeMenuController {
         this.editMode = this.config["treemenu-editmode"] === 'true';
         this.version = this.config["treemenu-version"];
         this.urlRoot = this.config["urlroot"];
-        if(this.urlRoot === undefined){
+        if (this.urlRoot === undefined) {
             this.urlRoot = "";
         }
         this.ajaxurl = this.rootModel.getSrc();
@@ -153,7 +161,7 @@ export class TreeMenuController {
 
             if (this.editMode) {
                 this.findParents(data, null);
-                this.editorSync.fireCreateRootNodeControls("treeMenuEditRoot", this.menuData, () => this.rebuildMenu(), this.ajaxurl, this.bindings); //This isn't really right, will create controllers for all tree menus on the page, need to single out somehow
+                this.editorSync.fireCreateRootNodeControls("treeMenuEditRoot", this.menuData, () => this.rebuildMenu(), this.ajaxurl, this.bindings, this.urlRoot); //This isn't really right, will create controllers for all tree menus on the page, need to single out somehow
             }
 
             var menuCacheInfo = this.getMenuCacheInfo(data.menuItemId);
@@ -185,7 +193,7 @@ export class TreeMenuController {
                 this.setupLiveMenuItems(children[i]);
             }
         }
-        else{
+        else {
             //Set url root on links
             data.urlRoot = this.urlRoot;
         }
