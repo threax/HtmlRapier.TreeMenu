@@ -5,6 +5,9 @@ import * as http from "hr.http";
 import * as controller from "hr.controller";
 import * as EventDispatcher from 'hr.eventdispatcher';
 import * as ObservableList from 'hr.observablelist';
+import {Fetcher} from 'hr.fetcher';
+import {WindowFetch} from 'hr.windowfetch';
+import {CacheBuster} from 'hr.cachebuster';
 
 export interface ItemAddedArgs {
     saveUrl: string;
@@ -86,9 +89,16 @@ export function GetInstanceAdded() {
     return treeMenuInstances.itemAdded;
 }
 
+interface TreeMenuControllerOptions{
+    /**
+     * The fetcher to use to recover data.
+     */
+    fetcher: Fetcher;
+}
+
 export class TreeMenuController {
-    static GetBuilder() {
-        return new controller.ControllerBuilder<TreeMenuController, void, void>(TreeMenuController);
+    static GetBuilder(context?:TreeMenuControllerOptions) {
+        return new controller.ControllerBuilder<TreeMenuController, TreeMenuControllerOptions, void>(TreeMenuController, context);
     }
 
     private bindings: controller.BindingCollection;
@@ -112,8 +122,15 @@ export class TreeMenuController {
     private menuCache = null;
     private menuData = null;
     private createdItems = {};
+    private fetcher:Fetcher = undefined;
 
-    constructor(bindings: controller.BindingCollection) {
+    constructor(bindings: controller.BindingCollection, context?:TreeMenuControllerOptions) {
+        if(context !== undefined){
+            this.fetcher = context.fetcher;
+        }
+        if(this.fetcher === undefined){
+            this.fetcher = new CacheBuster(new WindowFetch());
+        }
         this.bindings = bindings;
         treeMenuInstances.add(this);
 
@@ -144,7 +161,7 @@ export class TreeMenuController {
             //No data, get it
             this.menuCache = {
             };
-            http.get(this.ajaxurl)
+            http.get(this.ajaxurl, this.fetcher)
                 .then((data) => {
                     this.initialSetup(data);
                 });
