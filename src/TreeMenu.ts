@@ -30,6 +30,10 @@ class TreeMenuEditorSync {
     private rootNodeControls = new ObservableList.ObservableList<CreateRootNodeControlsArgs>();
     private items = new ObservableList.ObservableList<ItemAddedArgs>();
 
+    alertMenuRebuilt(){
+        this.items.clear(false);
+    }
+
     fireItemAdded(saveUrl: string, itemData: any, bindListenerCb: any) {
         this.items.add({ saveUrl: saveUrl, itemData: itemData, bindListenerCb: bindListenerCb });
     }
@@ -174,6 +178,9 @@ export class TreeMenuController {
     }
 
     private rebuildMenu() {
+        if(this.editMode){
+            this.editorSync.alertMenuRebuilt();
+        }
         this.createdItems = {};
         var childModel = this.bindings.getModel('children');
         childModel.setData([]);

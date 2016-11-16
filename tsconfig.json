@@ -19,5 +19,8 @@
     "dist",
     "obj"
   ],
+  "include": [
+    "node_modules/HtmlRapier/src/*"
+  ],
   "compileOnSave": true
 }
