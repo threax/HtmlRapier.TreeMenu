@@ -256,24 +256,26 @@ export class TreeMenuController {
 
             childItemsModel.setData(folder.children, (folderComponent: controller.BindingCollection, data) => {
                 var id = data.menuItemId;
-                var menuCacheInfo = this.getMenuCacheInfo(id);
-                var childToggle = folderComponent.getToggle('children');
-
-                var listener = {
-                    toggleMenuItem: (evt) => {
-                        evt.preventDefault();
-
-                        this.buildMenu(folderComponent, menuCacheInfo, data);
-                        this.toggleMenu(menuCacheInfo, childToggle);
-                    }
-                };
                 if (this.editMode) {
                     this.editorSync.fireItemAdded(this.ajaxurl, data, (editListener) => { folderComponent.setListener(editListener); });
                 }
-                folderComponent.setListener(listener);
+                if(id !== undefined){
+                    var menuCacheInfo = this.getMenuCacheInfo(id);
+                    var childToggle = folderComponent.getToggle('children');
 
-                if (menuCacheInfo.expanded) {
-                    this.buildMenu(folderComponent, menuCacheInfo, data, autoHide);
+                    var listener = {
+                        toggleMenuItem: (evt) => {
+                            evt.preventDefault();
+
+                            this.buildMenu(folderComponent, menuCacheInfo, data);
+                            this.toggleMenu(menuCacheInfo, childToggle);
+                        }
+                    };
+                    folderComponent.setListener(listener);
+
+                    if (menuCacheInfo.expanded) {
+                        this.buildMenu(folderComponent, menuCacheInfo, data, autoHide);
+                    }
                 }
             }, (row) => {
                 if (!isFolder(row)) {
