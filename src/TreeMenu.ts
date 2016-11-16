@@ -84,6 +84,7 @@ export class TreeMenuController {
     private config;
     private editMode;
     private version;
+    private urlRoot: string;
     private editorSync = new TreeMenuEditorSync();
 
     private ajaxurl;
@@ -108,6 +109,10 @@ export class TreeMenuController {
         this.config = bindings.getConfig();
         this.editMode = this.config["treemenu-editmode"] === 'true';
         this.version = this.config["treemenu-version"];
+        this.urlRoot = this.config["urlroot"];
+        if(this.urlRoot === undefined){
+            this.urlRoot = "";
+        }
         this.ajaxurl = this.rootModel.getSrc();
         this.menuStorageId = 'treemenu-cache-' + this.ajaxurl;
         this.sessionData = storage.getSessionObject(this.menuStorageId, null);
@@ -143,7 +148,7 @@ export class TreeMenuController {
         this.menuData = data;
         if (this.menuData !== null) {
             if (data['menuItemId'] === undefined) {
-                this.createIds(data);
+                this.setupLiveMenuItems(data);
             }
 
             if (this.editMode) {
@@ -168,14 +173,21 @@ export class TreeMenuController {
         this.buildMenu(this.bindings, menuCacheInfo, this.menuData, false);
     }
 
-    private createIds(data) {
+    /**
+     * The configuration for items from the server is not 100%, fill in the missing info here.
+     */
+    private setupLiveMenuItems(data) {
         if (isFolder(data)) {
             data.menuItemId = this.getNextId();
             var children = data.children;
             for (var i = 0; i < children.length; ++i) {
                 //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
-                this.createIds(children[i]);
+                this.setupLiveMenuItems(children[i]);
             }
+        }
+        else{
+            //Set url root on links
+            data.urlRoot = this.urlRoot;
         }
     }
 
@@ -211,23 +223,23 @@ export class TreeMenuController {
         return this.menuCache[parentCategoryId];
     }
 
-    private buildMenu(parentBindings, menuCacheInfo, folder, autoHide?: boolean) {
+    private buildMenu(parentBindings: controller.BindingCollection, menuCacheInfo, folder, autoHide?: boolean) {
         if (autoHide === undefined) {
             autoHide = true;
         }
 
         if (!this.createdItems[menuCacheInfo.id]) {
             var parentModel = parentBindings.getModel('children');
-            var list = null;
+            var list: controller.BindingCollection = null;
             parentModel.setData({
-            }, function (created) {
+            }, function (created: controller.BindingCollection) {
                 list = created;
             });
             this.createdItems[menuCacheInfo.id] = true;
 
             var childItemsModel = list.getModel('childItems');
 
-            childItemsModel.setData(folder.children, (folderComponent, data) => {
+            childItemsModel.setData(folder.children, (folderComponent: controller.BindingCollection, data) => {
                 var id = data.menuItemId;
                 var menuCacheInfo = this.getMenuCacheInfo(id);
                 var childToggle = folderComponent.getToggle('children');
