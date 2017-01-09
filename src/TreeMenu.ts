@@ -176,9 +176,7 @@ export class TreeMenuController {
     initialSetup(data) {
         this.menuData = data;
         if (this.menuData !== null) {
-            if (data['menuItemId'] === undefined) {
-                this.setupLiveMenuItems(data);
-            }
+            this.setupLiveMenuItems(data);
 
             if (this.editMode) {
                 this.findParents(data, null);
@@ -201,6 +199,7 @@ export class TreeMenuController {
         this.createdItems = {};
         var childModel = this.bindings.getModel('children');
         childModel.setData([]);
+        this.setupLiveMenuItems(this.menuData);
         var menuCacheInfo = this.getMenuCacheInfo(this.menuData.menuItemId);
         this.buildMenu(this.bindings, menuCacheInfo, this.menuData, false);
     }
@@ -210,7 +209,9 @@ export class TreeMenuController {
      */
     private setupLiveMenuItems(data) {
         if (isFolder(data)) {
-            data.menuItemId = this.getNextId();
+            if (data['menuItemId'] === undefined) {
+                data.menuItemId = this.getNextId();
+            }
             var children = data.children;
             for (var i = 0; i < children.length; ++i) {
                 //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
