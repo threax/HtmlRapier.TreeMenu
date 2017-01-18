@@ -142,6 +142,12 @@ export class TreeMenuController {
         if (this.urlRoot === undefined) {
             this.urlRoot = "";
         }
+        if (this.urlRoot.length > 0) {
+            var lastChar = this.urlRoot[this.urlRoot.length - 1];
+            if (lastChar === '\\' || lastChar === '/') {
+                this.urlRoot = this.urlRoot.substr(0, this.urlRoot.length - 1);
+            }
+        }
         this.ajaxurl = this.rootModel.getSrc();
         this.menuStorageId = 'treemenu-cache-' + this.ajaxurl;
         this.sessionData = storage.getSessionObject(this.menuStorageId, null);
