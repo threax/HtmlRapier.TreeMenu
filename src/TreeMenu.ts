@@ -170,6 +170,15 @@ export class TreeMenuController {
             http.get(this.ajaxurl, this.fetcher)
                 .then((data) => {
                     this.initialSetup(data);
+                })
+                .catch((err) => {
+                    this.initialSetup({
+                        name: "Root",
+                        children: [{
+                            "name": "Main Page",
+                            "link": "/"
+                        }]
+                    })
                 });
         }
         else {
