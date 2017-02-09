@@ -228,9 +228,11 @@ export class TreeMenuController {
                 data.menuItemId = this.getNextId();
             }
             var children = data.children;
-            for (var i = 0; i < children.length; ++i) {
-                //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
-                this.setupLiveMenuItems(children[i]);
+            if (children) {
+                for (var i = 0; i < children.length; ++i) {
+                    //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
+                    this.setupLiveMenuItems(children[i]);
+                }
             }
         }
         else {
