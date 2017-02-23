@@ -311,7 +311,7 @@ export class TreeMenuController {
 
             childItemsModel.setData(selectIter, (folderComponent: controller.BindingCollection, rowData: MenuItem) => {
                 var data = rowData.original;
-                var id = data.menuItemId;
+                var id = (<any>data).menuItemId;
                 if (this.editMode) {
                     this.editorSync.fireItemAdded(this.ajaxurl, data, (editListener) => { folderComponent.setListener(editListener); });
                 }
