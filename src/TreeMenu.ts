@@ -5,9 +5,10 @@ import * as http from "hr.http";
 import * as controller from "hr.controller";
 import * as EventDispatcher from 'hr.eventdispatcher';
 import * as ObservableList from 'hr.observablelist';
-import {Fetcher} from 'hr.fetcher';
-import {WindowFetch} from 'hr.windowfetch';
-import {CacheBuster} from 'hr.cachebuster';
+import { Fetcher } from 'hr.fetcher';
+import { WindowFetch } from 'hr.windowfetch';
+import { CacheBuster } from 'hr.cachebuster';
+import * as iter from 'hr.iterable';
 
 export interface ItemAddedArgs {
     saveUrl: string;
@@ -29,11 +30,19 @@ export interface TreeMenuEditorSyncObserver {
     itemAdded: (arg: ItemAddedArgs) => void;
 }
 
+interface MenuItem {
+    name: string,
+    urlRoot?: string,
+    link?: string,
+    target?: string,
+    original: any //The original menu item data stored in the output.
+}
+
 class TreeMenuEditorSync {
     private rootNodeControls = new ObservableList.ObservableList<CreateRootNodeControlsArgs>();
     private items = new ObservableList.ObservableList<ItemAddedArgs>();
 
-    alertMenuRebuilt(){
+    alertMenuRebuilt() {
         this.items.clear(false);
     }
 
@@ -70,7 +79,7 @@ class TreeMenuEditorSync {
 }
 
 export function isFolder(menuItem) {
-    return !menuItem.hasOwnProperty("link");
+    return !menuItem.hasOwnProperty("link") || menuItem.link === undefined;
 }
 
 interface TreeMenuSessionData {
@@ -89,7 +98,7 @@ export function GetInstanceAdded() {
     return treeMenuInstances.itemAdded;
 }
 
-interface TreeMenuControllerOptions{
+interface TreeMenuControllerOptions {
     /**
      * The fetcher to use to recover data.
      */
@@ -97,7 +106,7 @@ interface TreeMenuControllerOptions{
 }
 
 export class TreeMenuController {
-    static GetBuilder(context?:TreeMenuControllerOptions) {
+    static GetBuilder(context?: TreeMenuControllerOptions) {
         return new controller.ControllerBuilder<TreeMenuController, TreeMenuControllerOptions, void>(TreeMenuController, context);
     }
 
@@ -122,13 +131,13 @@ export class TreeMenuController {
     private menuCache = null;
     private menuData = null;
     private createdItems = {};
-    private fetcher:Fetcher = undefined;
+    private fetcher: Fetcher = undefined;
 
-    constructor(bindings: controller.BindingCollection, context?:TreeMenuControllerOptions) {
-        if(context !== undefined){
+    constructor(bindings: controller.BindingCollection, context?: TreeMenuControllerOptions) {
+        if (context !== undefined) {
             this.fetcher = context.fetcher;
         }
-        if(this.fetcher === undefined){
+        if (this.fetcher === undefined) {
             this.fetcher = new CacheBuster(new WindowFetch());
         }
         this.bindings = bindings;
@@ -208,7 +217,7 @@ export class TreeMenuController {
     }
 
     private rebuildMenu() {
-        if(this.editMode){
+        if (this.editMode) {
             this.editorSync.alertMenuRebuilt();
         }
         this.createdItems = {};
@@ -287,14 +296,26 @@ export class TreeMenuController {
             });
             this.createdItems[menuCacheInfo.id] = true;
 
-            var childItemsModel = list.getModel('childItems');
+            var childItemsModel = list.getModel<MenuItem>('childItems');
 
-            childItemsModel.setData(folder.children, (folderComponent: controller.BindingCollection, data) => {
+            var childIter: iter.IterableInterface<any> = new iter.Iterable(folder.children);
+            var selectIter = childIter.select<MenuItem>(i => {
+                return {
+                    original: i,
+                    name: i.name,
+                    link: i.link,
+                    target: i.target ? i.target : "_self",
+                    urlRoot: i.urlRoot
+                };
+            });
+
+            childItemsModel.setData(selectIter, (folderComponent: controller.BindingCollection, rowData: MenuItem) => {
+                var data = rowData.original;
                 var id = data.menuItemId;
                 if (this.editMode) {
                     this.editorSync.fireItemAdded(this.ajaxurl, data, (editListener) => { folderComponent.setListener(editListener); });
                 }
-                if(id !== undefined){
+                if (id !== undefined) {
                     var menuCacheInfo = this.getMenuCacheInfo(id);
                     var childToggle = folderComponent.getToggle('children');
 
