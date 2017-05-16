@@ -19,6 +19,7 @@ interface TreeMenuFolderNode {
     //Needed live, will not be saved on edit
     parent: TreeMenuFolderNode;
     expanded: boolean;
+    currentPage: boolean;
 }
 
 interface TreeMenuLinkNode {
@@ -100,7 +101,8 @@ class TreeMenuProvider {
                         currentPage: false
                     }],
                     parent: undefined,
-                    expanded: true
+                    expanded: true,
+                    currentPage: false
                 };
             }
             this.sessionData = {
@@ -138,20 +140,21 @@ class TreeMenuProvider {
             node.currentPage = node.link === this.pageUrl.path;
             if (node.currentPage) {
                 //If page is the current page, set it and all its parents to expanded
-                this.expandParents(node.parent);
+                this.setParentsCurrent(node.parent);
             }
         }
     }
 
-    private expandParents(node: TreeMenuFolderNode) {
+    private setParentsCurrent(node: TreeMenuFolderNode) {
         while (node) {
             node.expanded = true;
+            node.currentPage = true;
             node = node.parent;
         }
     }
 
     private serializerReplace(key: string, value: any) {
-        return key !== 'parent' ? value : undefined;
+        return key !== 'parent' && key !== 'currentPage' ? value : undefined;
     }
 
     get RootNode(): TreeMenuFolderNode {
@@ -279,6 +282,8 @@ class TreeMenuItem {
             this.folder = folderMenuItemInfo.original;
         }
         this.childToggle = bindings.getToggle("children");
+        var currentToggle = bindings.getToggle("current");
+        currentToggle.mode = folderMenuItemInfo.original.currentPage;
     }
 
     protected postBind() {
