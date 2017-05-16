@@ -27,7 +27,6 @@ interface TreeMenuLinkNode {
     target?: string,
     //Needed live, will not be saved
     parent: TreeMenuNode;
-    urlRoot: string;
 }
 
 type TreeMenuNode = TreeMenuFolderNode | TreeMenuLinkNode;
@@ -93,8 +92,7 @@ class TreeMenuProvider {
                     children: [{
                         "name": "Main Page",
                         "link": "/",
-                        parent: undefined,
-                        urlRoot: urlRoot
+                        parent: undefined
                     }],
                     parent: undefined,
                     expanded: true
@@ -107,8 +105,6 @@ class TreeMenuProvider {
                 version: version
             };
         }
-
-        this.setupLiveMenuItems(this.sessionData.data);
     }
 
     public cacheMenu(scrollLeft: number, scrollTop: number) {
@@ -118,22 +114,6 @@ class TreeMenuProvider {
             scrollLeft: scrollLeft,
             scrollTop: scrollTop
         });
-    }
-
-    private setupLiveMenuItems(node: TreeMenuNode) {
-        if (IsFolder(node)) {
-            var children = node.children;
-            if (children) {
-                for (var i = 0; i < children.length; ++i) {
-                    //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
-                    this.setupLiveMenuItems(children[i]);
-                }
-            }
-        }
-        else {
-            //Set url root on links
-            node.urlRoot = this.urlRoot;
-        }
     }
 
     get RootNode(): TreeMenuFolderNode {
@@ -261,7 +241,7 @@ class TreeMenuItem {
     private childToggle: controller.OnOffToggle;
     private childModel: controller.Model<MenuItemModel>;
 
-    public constructor(private bindings: controller.BindingCollection, folderMenuItemInfo: MenuItemModel, private builder: controller.InjectedControllerBuilder) {
+    public constructor(private bindings: controller.BindingCollection, private folderMenuItemInfo: MenuItemModel, private builder: controller.InjectedControllerBuilder) {
         this.childModel = this.bindings.getModel<MenuItemModel>("children");
         if (IsFolder(folderMenuItemInfo.original)) {
             this.folder = folderMenuItemInfo.original;
@@ -297,7 +277,7 @@ class TreeMenuItem {
                     name: i.name,
                     link: i.link,
                     target: i.target ? i.target : "_self",
-                    urlRoot: i.urlRoot
+                    urlRoot: this.folderMenuItemInfo.urlRoot
                 };
             });
             this.childModel.setData(childIter, this.builder.createOnCallback(TreeMenuItem), VariantFinder);
