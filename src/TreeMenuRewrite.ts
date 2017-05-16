@@ -16,7 +16,7 @@ interface TreeMenuFolderNode {
     //Data storage
     name: string,
     children: TreeMenuNode[],
-    //Needed live, will not be saved
+    //Needed live, will not be saved on edit
     parent: TreeMenuFolderNode;
     expanded: boolean;
 }
@@ -26,7 +26,7 @@ interface TreeMenuLinkNode {
     name: string,
     link: string,
     target?: string,
-    //Needed live, will not be saved
+    //Needed live, will not be saved on edit
     parent: TreeMenuFolderNode;
     currentPage: boolean;
 }
@@ -144,9 +144,9 @@ class TreeMenuProvider {
     }
 
     private expandParents(node: TreeMenuFolderNode) {
-        if (node) {
+        while (node) {
             node.expanded = true;
-            this.expandParents(node.parent);
+            node = node.parent;
         }
     }
 
