@@ -10,13 +10,14 @@ import { WindowFetch } from 'hr.windowfetch';
 import { CacheBuster } from 'hr.cachebuster';
 import * as iter from 'hr.iterable';
 import * as domQuery from 'hr.domquery';
+import * as uri from 'hr.uri';
 
 interface TreeMenuFolderNode {
     //Data storage
     name: string,
     children: TreeMenuNode[],
     //Needed live, will not be saved
-    parent: TreeMenuNode;
+    parent: TreeMenuFolderNode;
     expanded: boolean;
 }
 
@@ -26,12 +27,13 @@ interface TreeMenuLinkNode {
     link: string,
     target?: string,
     //Needed live, will not be saved
-    parent: TreeMenuNode;
+    parent: TreeMenuFolderNode;
+    currentPage: boolean;
 }
 
 type TreeMenuNode = TreeMenuFolderNode | TreeMenuLinkNode;
 
-function IsFolder(node: TreeMenuNode): node is TreeMenuFolderNode{
+function IsFolder(node: TreeMenuNode): node is TreeMenuFolderNode {
     return node !== undefined && (<TreeMenuFolderNode>node).children !== undefined;
 }
 
@@ -67,6 +69,7 @@ class TreeMenuProvider {
     private menuStorageId: string;
     private urlRoot: string;
     private version: string;
+    private pageUrl: uri.Uri;
 
     public constructor(private fetcher: Fetcher) {
 
@@ -75,6 +78,7 @@ class TreeMenuProvider {
     public async loadMenu(url: string, version: string, urlRoot: string) {
         var rootNode: TreeMenuFolderNode;
 
+        this.pageUrl = new uri.Uri();
         this.urlRoot = urlRoot;
         this.version = version;
         this.menuStorageId = 'treemenu-cache-' + url;
@@ -92,7 +96,8 @@ class TreeMenuProvider {
                     children: [{
                         "name": "Main Page",
                         "link": "/",
-                        parent: undefined
+                        parent: undefined,
+                        currentPage: false
                     }],
                     parent: undefined,
                     expanded: true
@@ -105,15 +110,48 @@ class TreeMenuProvider {
                 version: version
             };
         }
+
+        //Always have to recalculate parents, since they can't be saved due to circular refs
+        this.setupRuntimeInfo(this.RootNode, undefined);
     }
 
     public cacheMenu(scrollLeft: number, scrollTop: number) {
-        storage.storeObjectInSession<TreeMenuSessionData>(this.menuStorageId, {
+        var cacheData = {
             data: this.sessionData.data,
             version: this.version,
             scrollLeft: scrollLeft,
             scrollTop: scrollTop
-        });
+        };
+        storage.storeObjectInSession<TreeMenuSessionData>(this.menuStorageId, cacheData, this.serializerReplace);
+    }
+
+    private setupRuntimeInfo(node: TreeMenuNode, parent: TreeMenuFolderNode) {
+        node.parent = parent;
+        if (IsFolder(node)) {
+            var children = node.children;
+            for (var i = 0; i < children.length; ++i) {
+                //Recursion, I don't care, how nested is your menu that you run out of stack space here? Can a user really use that?
+                this.setupRuntimeInfo(children[i], node);
+            }
+        }
+        else { //Page link, check to see if it is the current page
+            node.currentPage = node.link === this.pageUrl.path;
+            if (node.currentPage) {
+                //If page is the current page, set it and all its parents to expanded
+                this.expandParents(node.parent);
+            }
+        }
+    }
+
+    private expandParents(node: TreeMenuFolderNode) {
+        if (node) {
+            node.expanded = true;
+            this.expandParents(node.parent);
+        }
+    }
+
+    private serializerReplace(key: string, value: any) {
+        return key !== 'parent' ? value : undefined;
     }
 
     get RootNode(): TreeMenuFolderNode {
@@ -179,7 +217,7 @@ export class TreeMenu {
             if (node instanceof HTMLElement) {
                 this.scrollElement = node;
             }
-            else if(node){
+            else if (node) {
                 throw new Error("Scroll element " + config.scrollelement + " is not an HTMLElement.");
             }
         }
@@ -188,44 +226,38 @@ export class TreeMenu {
     }
 
     private async loadMenu() {
-        //No data, get it
-        try {
-            await this.treeMenuProvider.loadMenu(this.ajaxurl, this.version, this.urlRoot);
-            var rootNode = this.treeMenuProvider.RootNode;
+        await this.treeMenuProvider.loadMenu(this.ajaxurl, this.version, this.urlRoot);
+        var rootNode = this.treeMenuProvider.RootNode;
 
-            //Only cache menus that loaded correctly
-            window.onbeforeunload = e => {
-                //Cheat to handle scroll position, using handles
-                var scrollLeft = 0;
-                var scrollTop = 0;
-                if (this.scrollElement) {
-                    scrollLeft = this.scrollElement.scrollLeft;
-                    scrollTop = this.scrollElement.scrollTop;
-                }
-
-                this.treeMenuProvider.cacheMenu(scrollLeft, scrollTop); 
-            }
-
-            //Build child tree nodes
-            this.builder.Services.addSharedInstance(TreeMenu, this); //Ensure tree children get this TreeMenu instance.
-            //Select nodes, treat all nodes as link nodes
-            var rootData: MenuItemModel = {
-                original: rootNode,
-                name: rootNode.name,
-                link: undefined,
-                target: undefined,
-                urlRoot: this.urlRoot
-            };
-            this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
-
-            //Now that the menu is built, restore the scroll position
+        //Only cache menus that loaded correctly
+        window.onbeforeunload = e => {
+            //Cheat to handle scroll position, using handles
+            var scrollLeft = 0;
+            var scrollTop = 0;
             if (this.scrollElement) {
-                this.scrollElement.scrollLeft = this.treeMenuProvider.ScrollLeft;
-                this.scrollElement.scrollTop = this.treeMenuProvider.ScrollTop;
+                scrollLeft = this.scrollElement.scrollLeft;
+                scrollTop = this.scrollElement.scrollTop;
             }
+
+            this.treeMenuProvider.cacheMenu(scrollLeft, scrollTop);
         }
-        catch (err) {
-            console.log('Error loading menu ' + err);
+
+        //Build child tree nodes
+        this.builder.Services.addSharedInstance(TreeMenu, this); //Ensure tree children get this TreeMenu instance.
+        //Select nodes, treat all nodes as link nodes
+        var rootData: MenuItemModel = {
+            original: rootNode,
+            name: rootNode.name,
+            link: undefined,
+            target: undefined,
+            urlRoot: this.urlRoot
+        };
+        this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+
+        //Now that the menu is built, restore the scroll position
+        if (this.scrollElement) {
+            this.scrollElement.scrollLeft = this.treeMenuProvider.ScrollLeft;
+            this.scrollElement.scrollTop = this.treeMenuProvider.ScrollTop;
         }
     }
 }
