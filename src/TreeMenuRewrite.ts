@@ -9,6 +9,7 @@ import { Fetcher } from 'hr.fetcher';
 import { WindowFetch } from 'hr.windowfetch';
 import { CacheBuster } from 'hr.cachebuster';
 import * as iter from 'hr.iterable';
+import * as domQuery from 'hr.domquery';
 
 interface TreeMenuFolderNode {
     //Data storage
@@ -16,7 +17,6 @@ interface TreeMenuFolderNode {
     children: TreeMenuNode[],
     //Needed live, will not be saved
     parent: TreeMenuNode;
-    menuItemId: number;
     expanded: boolean;
 }
 
@@ -37,9 +37,10 @@ function IsFolder(node: TreeMenuNode): node is TreeMenuFolderNode{
 }
 
 interface TreeMenuSessionData {
-    version;
-    cache;
-    data;
+    version: string;
+    data: TreeMenuFolderNode;
+    scrollLeft: number;
+    scrollTop: number;
 };
 
 interface MenuCacheInfo {
@@ -63,8 +64,6 @@ class TreeMenuProvider {
         return [Fetcher];
     }
 
-    private menuCache = null;
-    private rootNode: TreeMenuFolderNode;
     private sessionData: TreeMenuSessionData;
     private menuStorageId: string;
     private urlRoot: string;
@@ -75,6 +74,8 @@ class TreeMenuProvider {
     }
 
     public async loadMenu(url: string, version: string, urlRoot: string) {
+        var rootNode: TreeMenuFolderNode;
+
         this.urlRoot = urlRoot;
         this.version = version;
         this.menuStorageId = 'treemenu-cache-' + url;
@@ -83,47 +84,44 @@ class TreeMenuProvider {
         if (this.sessionData === null || this.sessionData.version !== version) {
             //No data, get it
             try {
-                this.menuCache = {};
-                this.rootNode = await http.get<TreeMenuFolderNode>(url, this.fetcher);
-                this.rootNode.expanded = true;
+                rootNode = await http.get<TreeMenuFolderNode>(url, this.fetcher);
+                rootNode.expanded = true;
             }
             catch (err) {
-                this.rootNode = {
+                rootNode = {
                     name: "Root",
                     children: [{
                         "name": "Main Page",
                         "link": "/",
                         parent: undefined,
-                        urlRoot: undefined
+                        urlRoot: urlRoot
                     }],
                     parent: undefined,
-                    menuItemId: undefined,
                     expanded: true
                 };
             }
-        }
-        else {
-            //Use what we had
-            this.menuCache = this.sessionData.cache;
-            this.rootNode = this.sessionData.data;
+            this.sessionData = {
+                data: rootNode,
+                scrollLeft: 0,
+                scrollTop: 0,
+                version: version
+            };
         }
 
-        this.setupLiveMenuItems(this.rootNode);
+        this.setupLiveMenuItems(this.sessionData.data);
     }
 
-    public cacheMenu() {
+    public cacheMenu(scrollLeft: number, scrollTop: number) {
         storage.storeObjectInSession<TreeMenuSessionData>(this.menuStorageId, {
-            cache: this.menuCache,
-            data: this.rootNode,
-            version: this.version
+            data: this.sessionData.data,
+            version: this.version,
+            scrollLeft: scrollLeft,
+            scrollTop: scrollTop
         });
     }
 
     private setupLiveMenuItems(node: TreeMenuNode) {
         if (IsFolder(node)) {
-            if (node.menuItemId === undefined) {
-                node.menuItemId = this.getNextId();
-            }
             var children = node.children;
             if (children) {
                 for (var i = 0; i < children.length; ++i) {
@@ -139,15 +137,16 @@ class TreeMenuProvider {
     }
 
     get RootNode(): TreeMenuFolderNode {
-        return this.rootNode;
+        return this.sessionData.data;
     }
 
-    private getNextId = (function () {
-        var i = -1;
-        return function () {
-            return ++i;
-        }
-    })();
+    get ScrollLeft(): number {
+        return this.sessionData.scrollLeft;
+    }
+
+    get ScrollTop(): number {
+        return this.sessionData.scrollTop;
+    }
 }
 
 function VariantFinder(node: MenuItemModel) {
@@ -163,6 +162,7 @@ function RootVariant(node: MenuItemModel) {
 interface TreeMenuConfig {
     urlroot: string;
     menu: string;
+    scrollelement?: string;
 }
 
 export class TreeMenu {
@@ -175,6 +175,7 @@ export class TreeMenu {
     private version: string;
     private urlRoot: string;
     private ajaxurl: string;
+    private scrollElement: HTMLElement;
 
     public constructor(private bindings: controller.BindingCollection, private treeMenuProvider: TreeMenuProvider, private builder: controller.InjectedControllerBuilder) {
         this.rootModel = bindings.getModel('childItems');
@@ -193,6 +194,16 @@ export class TreeMenu {
             }
         }
 
+        if (config.scrollelement) {
+            var node = domQuery.first(config.scrollelement);
+            if (node instanceof HTMLElement) {
+                this.scrollElement = node;
+            }
+            else if(node){
+                throw new Error("Scroll element " + config.scrollelement + " is not an HTMLElement.");
+            }
+        }
+
         this.loadMenu();
     }
 
@@ -202,8 +213,20 @@ export class TreeMenu {
             await this.treeMenuProvider.loadMenu(this.ajaxurl, this.version, this.urlRoot);
             var rootNode = this.treeMenuProvider.RootNode;
 
-            window.onbeforeunload = (e) => this.treeMenuProvider.cacheMenu(); //Only cache menus that loaded correctly
+            //Only cache menus that loaded correctly
+            window.onbeforeunload = e => {
+                //Cheat to handle scroll position, using handles
+                var scrollLeft = 0;
+                var scrollTop = 0;
+                if (this.scrollElement) {
+                    scrollLeft = this.scrollElement.scrollLeft;
+                    scrollTop = this.scrollElement.scrollTop;
+                }
 
+                this.treeMenuProvider.cacheMenu(scrollLeft, scrollTop); 
+            }
+
+            //Build child tree nodes
             this.builder.Services.addSharedInstance(TreeMenu, this); //Ensure tree children get this TreeMenu instance.
             //Select nodes, treat all nodes as link nodes
             var rootData: MenuItemModel = {
@@ -214,6 +237,12 @@ export class TreeMenu {
                 urlRoot: this.urlRoot
             };
             this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+
+            //Now that the menu is built, restore the scroll position
+            if (this.scrollElement) {
+                this.scrollElement.scrollLeft = this.treeMenuProvider.ScrollLeft;
+                this.scrollElement.scrollTop = this.treeMenuProvider.ScrollTop;
+            }
         }
         catch (err) {
             console.log('Error loading menu ' + err);
