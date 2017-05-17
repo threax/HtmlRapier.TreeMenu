@@ -41,10 +41,17 @@ export class EditTreeMenu extends TreeMenu.TreeMenu {
 
 class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
-        return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder, AddTreeMenuItemController, EditTreeMenuItemController];
+        return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder, AddTreeMenuItemController, EditTreeMenuItemController, DeleteTreeMenuItemController];
     }
 
-    public constructor(bindings: controller.BindingCollection, folderMenuItemInfo: TreeMenu.MenuItemModel, builder: controller.InjectedControllerBuilder, private addItemController: AddTreeMenuItemController, private editItemController: EditTreeMenuItemController) {
+    public constructor(
+        bindings: controller.BindingCollection,
+        folderMenuItemInfo: TreeMenu.MenuItemModel,
+        builder: controller.InjectedControllerBuilder,
+        private addItemController: AddTreeMenuItemController,
+        private editItemController: EditTreeMenuItemController,
+        private deleteItemController: DeleteTreeMenuItemController)
+    {
         super(bindings, folderMenuItemInfo, builder);
     }
 
@@ -134,8 +141,25 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         }
     }
 
-    public deleteItem(evt: Event) {
-
+    public async deleteItem(evt: Event) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        try {
+            await this.deleteItemController.confirm(this.folderMenuItemInfo.original);
+            var menuItem = this.folderMenuItemInfo.original;
+            var parent = menuItem.parent;
+            var loc = parent.children.indexOf(menuItem);
+            if (loc !== -1) {
+                menuItem.parent = null;
+                parent.children.splice(loc, 1);
+                this.rebuildParent(parent);
+            }
+        }
+        catch (err) {
+            if (err !== AddTreeMenuItemController.CancellationToken) {
+                throw err;
+            }
+        }
     }
 }
 
@@ -324,6 +348,42 @@ export class EditTreeMenuItemController {
     }
 }
 
+export class DeleteTreeMenuItemController {
+    public static get InjectorArgs(): controller.DiFunction<any>[] {
+        return [controller.BindingCollection];
+    }
+
+    private dialog: controller.OnOffToggle;
+    private model: controller.Model<TreeMenu.TreeMenuNode>;
+    private currentPromise: ExternalPromise<void>;
+
+    constructor(bindings: controller.BindingCollection) {
+        this.dialog = bindings.getToggle('dialog');
+        this.model = bindings.getModel<TreeMenu.TreeMenuNode>('info');
+    }
+
+    public confirm(menuItem: TreeMenu.TreeMenuNode): Promise<void> {
+        if (this.currentPromise) {
+            this.currentPromise.reject(AddTreeMenuItemController.CancellationToken);
+        }
+
+        this.currentPromise = new ExternalPromise<void>();
+
+        this.model.setData(menuItem);
+        this.dialog.on();
+
+        return this.currentPromise.Promise;
+    }
+
+    public deleteItem(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        this.currentPromise.resolve();
+        this.dialog.off();
+    }
+}
+
 export function addServices(services: controller.ServiceCollection) {
     services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
     services.addTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
@@ -331,4 +391,5 @@ export function addServices(services: controller.ServiceCollection) {
     services.addTransient(TreeMenu.TreeMenuItem, EditTreeMenuItem);
     services.addShared(AddTreeMenuItemController, AddTreeMenuItemController);
     services.addShared(EditTreeMenuItemController, EditTreeMenuItemController);
+    services.addShared(DeleteTreeMenuItemController, DeleteTreeMenuItemController);
 }
