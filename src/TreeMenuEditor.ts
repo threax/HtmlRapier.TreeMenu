@@ -41,7 +41,14 @@ export class EditTreeMenu extends TreeMenu.TreeMenu {
 
 class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
-        return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder, AddTreeMenuItemController, EditTreeMenuItemController, DeleteTreeMenuItemController];
+        return [
+            controller.BindingCollection,
+            controller.InjectControllerData,
+            controller.InjectedControllerBuilder,
+            AddTreeMenuItemController,
+            EditTreeMenuItemController,
+            DeleteTreeMenuItemController,
+            ChooseMenuItemController];
     }
 
     public constructor(
@@ -50,7 +57,8 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         builder: controller.InjectedControllerBuilder,
         private addItemController: AddTreeMenuItemController,
         private editItemController: EditTreeMenuItemController,
-        private deleteItemController: DeleteTreeMenuItemController)
+        private deleteItemController: DeleteTreeMenuItemController,
+        private chooseItemController: ChooseMenuItemController)
     {
         super(bindings, folderMenuItemInfo, builder);
     }
@@ -105,8 +113,26 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         }
     }
 
-    public moveToChild(evt: Event) {
-
+    public async moveToChild(evt: Event) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        try {
+            var myself = this.folderMenuItemInfo.original;
+            var parent = myself.parent;
+            var itemIter = new iter.Iterable(parent.children).where(w => w !== myself && TreeMenu.IsFolder(w));
+            var nestUnder = await this.chooseItemController.chooseItem("Nest " + myself.name + " under...", itemIter);
+            if (TreeMenu.IsFolder(nestUnder)) {
+                this.doDelete(myself);
+                nestUnder.children.push(myself);
+                myself.parent = nestUnder;
+                this.rebuildParent(parent);
+            }
+        }
+        catch (err) {
+            if (err !== AddTreeMenuItemController.CancellationToken) {
+                throw err;
+            }
+        }
     }
 
     public async addItem(evt, menuData, itemData, urlRoot, updateCb) {
@@ -145,13 +171,10 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         evt.preventDefault();
         evt.stopPropagation();
         try {
-            await this.deleteItemController.confirm(this.folderMenuItemInfo.original);
             var menuItem = this.folderMenuItemInfo.original;
+            await this.deleteItemController.confirm(menuItem);
             var parent = menuItem.parent;
-            var loc = parent.children.indexOf(menuItem);
-            if (loc !== -1) {
-                menuItem.parent = null;
-                parent.children.splice(loc, 1);
+            if (this.doDelete(menuItem)) {
                 this.rebuildParent(parent);
             }
         }
@@ -160,6 +183,21 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
                 throw err;
             }
         }
+    }
+
+    /**
+     * Helper function to delete menu item.
+     * @param menuItem
+     */
+    private doDelete(menuItem: TreeMenu.TreeMenuNode) {
+        var parent = menuItem.parent;
+        var loc = parent.children.indexOf(menuItem);
+        if (loc !== -1) {
+            menuItem.parent = null;
+            parent.children.splice(loc, 1);
+            return true;
+        }
+        return false;
     }
 }
 
@@ -384,6 +422,62 @@ export class DeleteTreeMenuItemController {
     }
 }
 
+class MenuItemChoiceController {
+    public static get InjectorArgs(): controller.DiFunction<any>[] {
+        return [ChooseMenuItemController, controller.InjectControllerData];
+    }
+
+    constructor(private chooseMenuController: ChooseMenuItemController, private row) {
+        
+    }
+
+    public itemChosen(evt) {
+        this.chooseMenuController.chosen(this.row);
+    }
+}
+
+export class ChooseMenuItemController {
+    public static get InjectorArgs(): controller.DiFunction<any>[] {
+        return [controller.BindingCollection, controller.InjectedControllerBuilder];
+    }
+
+    private dialog: controller.OnOffToggle;
+    private promptModel: controller.Model<string>;
+    private chooser: controller.Model<TreeMenu.TreeMenuNode>;
+    private currentPromise: ExternalPromise<TreeMenu.TreeMenuNode>;
+
+    constructor(bindings: controller.BindingCollection, private builder: controller.InjectedControllerBuilder) {
+        this.dialog = bindings.getToggle("dialog");
+        this.promptModel = bindings.getModel<string>("prompt");
+        this.chooser = bindings.getModel<TreeMenu.TreeMenuNode>("chooser");
+    }
+
+    /**
+     * Call this function to start choosing a menu item.
+     * @param prompt - The propmt to display to the user.
+     * @param items - The items that can be chosen from
+     */
+    public chooseItem(prompt: string, items: TreeMenu.TreeMenuNode[] | iter.IterableInterface<TreeMenu.TreeMenuNode>): Promise<TreeMenu.TreeMenuNode> {
+        if (this.currentPromise) {
+            this.currentPromise.reject(AddTreeMenuItemController.CancellationToken);
+        }
+
+        this.currentPromise = new ExternalPromise<TreeMenu.TreeMenuNode>();
+
+        this.promptModel.setData(prompt);
+        this.dialog.on();
+        this.chooser.setData(items, this.builder.createOnCallback(MenuItemChoiceController));
+
+        return this.currentPromise.Promise;
+    }
+
+    public chosen(item) {
+        this.dialog.off();
+        this.currentPromise.resolve(item);
+        this.currentPromise = null;
+    }
+}
+
 export function addServices(services: controller.ServiceCollection) {
     services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
     services.addTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
@@ -392,4 +486,6 @@ export function addServices(services: controller.ServiceCollection) {
     services.addShared(AddTreeMenuItemController, AddTreeMenuItemController);
     services.addShared(EditTreeMenuItemController, EditTreeMenuItemController);
     services.addShared(DeleteTreeMenuItemController, DeleteTreeMenuItemController);
+    services.addShared(ChooseMenuItemController, ChooseMenuItemController);
+    services.addTransient(MenuItemChoiceController, MenuItemChoiceController);
 }
