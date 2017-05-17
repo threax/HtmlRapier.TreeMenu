@@ -12,7 +12,7 @@ import * as iter from 'hr.iterable';
 import * as domQuery from 'hr.domquery';
 import * as uri from 'hr.uri';
 
-interface TreeMenuFolderNode {
+export interface TreeMenuFolderNode {
     //Data storage
     name: string,
     children: TreeMenuNode[],
@@ -22,7 +22,7 @@ interface TreeMenuFolderNode {
     currentPage: boolean;
 }
 
-interface TreeMenuLinkNode {
+export interface TreeMenuLinkNode {
     //Data storage
     name: string,
     link: string,
@@ -32,9 +32,9 @@ interface TreeMenuLinkNode {
     currentPage: boolean;
 }
 
-type TreeMenuNode = TreeMenuFolderNode | TreeMenuLinkNode;
+export type TreeMenuNode = TreeMenuFolderNode | TreeMenuLinkNode;
 
-function IsFolder(node: TreeMenuNode): node is TreeMenuFolderNode {
+export function IsFolder(node: TreeMenuNode): node is TreeMenuFolderNode {
     return node !== undefined && (<TreeMenuFolderNode>node).children !== undefined;
 }
 
@@ -43,25 +43,18 @@ interface TreeMenuSessionData {
     data: TreeMenuFolderNode;
     scrollLeft: number;
     scrollTop: number;
-};
-
-interface MenuCacheInfo {
-    id: number;
 }
 
-interface CreatedItems {
-    [key: string]: boolean;
-}
-
-interface MenuItemModel {
+export interface MenuItemModel {
     name: string,
     urlRoot?: string,
     link?: string,
     target?: string,
     original: TreeMenuNode //The original menu item data stored in the output.
+    parentItem: TreeMenuItem
 }
 
-class TreeMenuProvider {
+export class TreeMenuProvider {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
         return [Fetcher];
     }
@@ -198,7 +191,7 @@ export class TreeMenu {
     private ajaxurl: string;
     private scrollElement: HTMLElement;
 
-    public constructor(private bindings: controller.BindingCollection, private treeMenuProvider: TreeMenuProvider, private builder: controller.InjectedControllerBuilder) {
+    public constructor(private bindings: controller.BindingCollection, protected treeMenuProvider: TreeMenuProvider, private builder: controller.InjectedControllerBuilder) {
         this.rootModel = bindings.getModel('childItems');
         var config = bindings.getConfig<TreeMenuConfig>();
         this.editMode = config["treemenu-editmode"] === 'true';
@@ -230,7 +223,6 @@ export class TreeMenu {
 
     private async loadMenu() {
         await this.treeMenuProvider.loadMenu(this.ajaxurl, this.version, this.urlRoot);
-        var rootNode = this.treeMenuProvider.RootNode;
 
         //Only cache menus that loaded correctly
         window.onbeforeunload = e => {
@@ -246,16 +238,7 @@ export class TreeMenu {
         }
 
         //Build child tree nodes
-        this.builder.Services.addSharedInstance(TreeMenu, this); //Ensure tree children get this TreeMenu instance.
-        //Select nodes, treat all nodes as link nodes
-        var rootData: MenuItemModel = {
-            original: rootNode,
-            name: rootNode.name,
-            link: undefined,
-            target: undefined,
-            urlRoot: this.urlRoot
-        };
-        this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+        this.rebuildMenu();
 
         //Now that the menu is built, restore the scroll position
         if (this.scrollElement) {
@@ -263,20 +246,34 @@ export class TreeMenu {
             this.scrollElement.scrollTop = this.treeMenuProvider.ScrollTop;
         }
     }
+
+    protected rebuildMenu() {
+        //Build child tree nodes
+        //Select nodes, treat all nodes as link nodes
+        var rootNode = this.treeMenuProvider.RootNode;
+        var rootData: MenuItemModel = {
+            original: rootNode,
+            name: rootNode.name,
+            link: undefined,
+            target: undefined,
+            urlRoot: this.urlRoot,
+            parentItem: undefined
+        };
+        this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+    }
 }
 
-class TreeMenuItem {
+export class TreeMenuItem {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
         return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder];
     }
 
-    private createdItems: CreatedItems = {};
     private folder: TreeMenuFolderNode;
     private loadedChildren = false;
     private childToggle: controller.OnOffToggle;
     private childModel: controller.Model<MenuItemModel>;
 
-    public constructor(private bindings: controller.BindingCollection, private folderMenuItemInfo: MenuItemModel, private builder: controller.InjectedControllerBuilder) {
+    public constructor(private bindings: controller.BindingCollection, protected folderMenuItemInfo: MenuItemModel, private builder: controller.InjectedControllerBuilder) {
         this.childModel = this.bindings.getModel<MenuItemModel>("children");
         if (IsFolder(folderMenuItemInfo.original)) {
             this.folder = folderMenuItemInfo.original;
@@ -304,7 +301,7 @@ class TreeMenuItem {
         this.folder.expanded = this.childToggle.mode;
     }
 
-    private buildChildren() {
+    private buildChildren(): void {
         if (this.folder && !this.loadedChildren) {
             this.loadedChildren = true;
             //Select nodes, treat all nodes as link nodes
@@ -314,17 +311,35 @@ class TreeMenuItem {
                     name: i.name,
                     link: i.link,
                     target: i.target ? i.target : "_self",
-                    urlRoot: this.folderMenuItemInfo.urlRoot
+                    urlRoot: this.folderMenuItemInfo.urlRoot,
+                    parentItem: this
                 };
             });
             this.childModel.setData(childIter, this.builder.createOnCallback(TreeMenuItem), VariantFinder);
+        }
+    }
+
+    /**
+     * Rebuild the children for this menu item
+     * @param node - The menu node to stop at and rebuild. Will do nothing if the node cannot be found.
+     */
+    protected rebuildParent(node: TreeMenuNode): void {
+        if (this.folderMenuItemInfo.original == node) {
+            this.loadedChildren = false;
+            this.buildChildren();
+        }
+        else {
+            var parent = this.folderMenuItemInfo.parentItem;
+            if (parent) {
+                parent.rebuildParent(node);
+            }
         }
     }
 }
 
 export function addServices(services: controller.ServiceCollection) {
     services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
-    services.addTransient(TreeMenuProvider, TreeMenuProvider);
-    services.addTransient(TreeMenu, TreeMenu);
-    services.addTransient(TreeMenuItem, TreeMenuItem);
+    services.tryAddTransient(TreeMenuProvider, TreeMenuProvider);
+    services.tryAddTransient(TreeMenu, TreeMenu);
+    services.tryAddTransient(TreeMenuItem, TreeMenuItem);
 }
