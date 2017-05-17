@@ -51,7 +51,8 @@ export interface MenuItemModel {
     link?: string,
     target?: string,
     original: TreeMenuNode //The original menu item data stored in the output.
-    parentItem: TreeMenuItem
+    parentItem: TreeMenuItem,
+    provider: TreeMenuProvider
 }
 
 export class TreeMenuProvider {
@@ -64,6 +65,7 @@ export class TreeMenuProvider {
     private urlRoot: string;
     private version: string;
     private pageUrl: uri.Uri;
+    protected saveUrl: string;
 
     public constructor(private fetcher: Fetcher) {
 
@@ -72,6 +74,7 @@ export class TreeMenuProvider {
     public async loadMenu(url: string, version: string, urlRoot: string) {
         var rootNode: TreeMenuFolderNode;
 
+        this.saveUrl = url;
         this.pageUrl = new uri.Uri();
         this.urlRoot = urlRoot;
         this.version = version;
@@ -118,6 +121,13 @@ export class TreeMenuProvider {
             scrollTop: scrollTop
         };
         storage.storeObjectInSession<TreeMenuSessionData>(this.menuStorageId, cacheData, this.serializerReplace);
+    }
+
+    /**
+     * This function is called when something causes the menu or part of the menu to rebuild.
+     */
+    public menuRebuilt() {
+
     }
 
     private setupRuntimeInfo(node: TreeMenuNode, parent: TreeMenuFolderNode) {
@@ -249,7 +259,6 @@ export class TreeMenu {
 
     protected rebuildMenu() {
         //Build child tree nodes
-        //Select nodes, treat all nodes as link nodes
         var rootNode = this.treeMenuProvider.RootNode;
         var rootData: MenuItemModel = {
             original: rootNode,
@@ -257,7 +266,8 @@ export class TreeMenu {
             link: undefined,
             target: undefined,
             urlRoot: this.urlRoot,
-            parentItem: undefined
+            parentItem: undefined,
+            provider: this.treeMenuProvider
         };
         this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
     }
@@ -312,7 +322,8 @@ export class TreeMenuItem {
                     link: i.link,
                     target: i.target ? i.target : "_self",
                     urlRoot: this.folderMenuItemInfo.urlRoot,
-                    parentItem: this
+                    parentItem: this,
+                    provider: this.folderMenuItemInfo.provider
                 };
             });
             this.childModel.setData(childIter, this.builder.createOnCallback(TreeMenuItem), VariantFinder);
@@ -327,6 +338,7 @@ export class TreeMenuItem {
         if (this.folderMenuItemInfo.original == node) {
             this.loadedChildren = false;
             this.buildChildren();
+            this.folderMenuItemInfo.provider.menuRebuilt();
         }
         else {
             var parent = this.folderMenuItemInfo.parentItem;
@@ -338,7 +350,6 @@ export class TreeMenuItem {
 }
 
 export function addServices(services: controller.ServiceCollection) {
-    services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
     services.tryAddTransient(TreeMenuProvider, TreeMenuProvider);
     services.tryAddTransient(TreeMenu, TreeMenu);
     services.tryAddTransient(TreeMenuItem, TreeMenuItem);

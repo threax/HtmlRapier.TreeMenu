@@ -479,13 +479,12 @@ export class ChooseMenuItemController {
 }
 
 export function addServices(services: controller.ServiceCollection) {
-    services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
-    services.addTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
-    services.addTransient(TreeMenu.TreeMenu, EditTreeMenu);
-    services.addTransient(TreeMenu.TreeMenuItem, EditTreeMenuItem);
-    services.addShared(AddTreeMenuItemController, AddTreeMenuItemController);
-    services.addShared(EditTreeMenuItemController, EditTreeMenuItemController);
-    services.addShared(DeleteTreeMenuItemController, DeleteTreeMenuItemController);
-    services.addShared(ChooseMenuItemController, ChooseMenuItemController);
-    services.addTransient(MenuItemChoiceController, MenuItemChoiceController);
+    services.tryAddTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
+    services.tryAddTransient(TreeMenu.TreeMenu, EditTreeMenu);
+    services.tryAddTransient(TreeMenu.TreeMenuItem, EditTreeMenuItem);
+    services.tryAddShared(AddTreeMenuItemController, AddTreeMenuItemController);
+    services.tryAddShared(EditTreeMenuItemController, EditTreeMenuItemController);
+    services.tryAddShared(DeleteTreeMenuItemController, DeleteTreeMenuItemController);
+    services.tryAddShared(ChooseMenuItemController, ChooseMenuItemController);
+    services.tryAddTransient(MenuItemChoiceController, MenuItemChoiceController);
 }
