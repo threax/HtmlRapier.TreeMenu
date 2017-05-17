@@ -41,10 +41,10 @@ export class EditTreeMenu extends TreeMenu.TreeMenu {
 
 class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
-        return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder, AddTreeMenuItemController];
+        return [controller.BindingCollection, controller.InjectControllerData, controller.InjectedControllerBuilder, AddTreeMenuItemController, EditTreeMenuItemController];
     }
 
-    public constructor(bindings: controller.BindingCollection, folderMenuItemInfo: TreeMenu.MenuItemModel, builder: controller.InjectedControllerBuilder, private addItemController: AddTreeMenuItemController) {
+    public constructor(bindings: controller.BindingCollection, folderMenuItemInfo: TreeMenu.MenuItemModel, builder: controller.InjectedControllerBuilder, private addItemController: AddTreeMenuItemController, private editItemController: EditTreeMenuItemController) {
         super(bindings, folderMenuItemInfo, builder);
     }
 
@@ -118,8 +118,20 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         }
     }
 
-    public editItem(evt: Event) {
-
+    public async editItem(evt: Event) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        try {
+            await this.editItemController.edit(this.folderMenuItemInfo.original); //This is always going to be a folder node if this function can be called
+            if (this.folderMenuItemInfo.original.parent) {
+                this.rebuildParent(this.folderMenuItemInfo.original.parent);
+            }
+        }
+        catch (err) {
+            if (err !== AddTreeMenuItemController.CancellationToken) {
+                throw err;
+            }
+        }
     }
 
     public deleteItem(evt: Event) {
@@ -263,22 +275,60 @@ export class AddTreeMenuItemController {
     }
 }
 
-//export class RootNodeControls {
-//    public static get InjectorArgs(): controller.DiFunction<any>[] {
-//        return [AddTreeMenuItemController];
-//    }
+export class EditTreeMenuItemController {
+    public static get InjectorArgs(): controller.DiFunction<any>[] {
+        return [controller.BindingCollection];
+    }
 
-//    public addItem(evt: Event) {
-//        evt.preventDefault();
-//        evt.stopPropagation();
-//        addTreeMenuItem.createNewItem(context.getMenuData(), context.getUrlRoot(), context.update);
-//    }
-//}
+    private currentItem: TreeMenu.TreeMenuNode;
+    private dialog: controller.OnOffToggle;
+    private model: controller.Model<TreeMenu.TreeMenuNode>;
+    private linkToggle: controller.OnOffToggle;
+    private currentPromise: ExternalPromise<TreeMenu.TreeMenuNode>;
+
+    constructor(bindings: controller.BindingCollection) {
+        this.dialog = bindings.getToggle("dialog");
+        this.model = bindings.getModel<TreeMenu.TreeMenuNode>("properties");
+        this.linkToggle = bindings.getToggle('link');
+        this.linkToggle.off();
+    }
+
+    public edit(menuItem: TreeMenu.TreeMenuNode): Promise<TreeMenu.TreeMenuNode> {
+        if (this.currentPromise) {
+            this.currentPromise.reject(AddTreeMenuItemController.CancellationToken);
+        }
+
+        this.currentPromise = new ExternalPromise<TreeMenu.TreeMenuNode>();
+        this.currentItem = menuItem;
+
+        this.dialog.on();
+        this.model.setData(menuItem);
+        this.linkToggle.mode = !TreeMenu.IsFolder(menuItem);
+
+        return this.currentPromise.Promise;
+    }
+
+    public updateMenuItem(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.dialog.off();
+
+        var data = this.model.getData();
+        this.currentItem.name = data.name;
+        if (!TreeMenu.IsFolder(this.currentItem)) {
+            this.currentItem.link = (<TreeMenu.TreeMenuLinkNode>data).link;
+        }
+
+        this.currentPromise.resolve(this.currentItem);
+        this.currentPromise = null;
+    }
+}
 
 export function addServices(services: controller.ServiceCollection) {
     services.tryAddShared(Fetcher, s => new CacheBuster(new WindowFetch()));
     services.addTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
     services.addTransient(TreeMenu.TreeMenu, EditTreeMenu);
     services.addTransient(TreeMenu.TreeMenuItem, EditTreeMenuItem);
-    services.tryAddShared(AddTreeMenuItemController, AddTreeMenuItemController);
+    services.addShared(AddTreeMenuItemController, AddTreeMenuItemController);
+    services.addShared(EditTreeMenuItemController, EditTreeMenuItemController);
 }
