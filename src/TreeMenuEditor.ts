@@ -15,12 +15,46 @@ import * as TreeMenu from "hr.treemenu.TreeMenu";
 import * as toggles from "hr.toggles";
 import { ExternalPromise } from 'hr.externalpromise';
 
-export class EditTreeMenu extends TreeMenu.TreeMenu {
+export class DragDropManager {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
-        return [controller.BindingCollection, TreeMenu.TreeMenuProvider, controller.InjectedControllerBuilder, AddTreeMenuItemController];
+        return [];
     }
 
-    public constructor(bindings: controller.BindingCollection, treeMenuProvider: TreeMenu.TreeMenuProvider, builder: controller.InjectedControllerBuilder, private addItemController: AddTreeMenuItemController) {
+    private _currentDrag: EditTreeMenuItem = null;
+
+    constructor() {
+
+    }
+
+    public set currentDrag(value: EditTreeMenuItem) {
+        this._currentDrag = value;
+    }
+
+    public get currentDrag() {
+        return this._currentDrag;
+    }
+
+    public clearCurrentDrag(): void {
+        this._currentDrag = null;
+    }
+}
+
+export class EditTreeMenu extends TreeMenu.TreeMenu {
+    public static get InjectorArgs(): controller.DiFunction<any>[] {
+        return [
+            controller.BindingCollection,
+            TreeMenu.TreeMenuProvider,
+            controller.InjectedControllerBuilder,
+            AddTreeMenuItemController,
+            DragDropManager];
+    }
+
+    public constructor(
+        bindings: controller.BindingCollection,
+        treeMenuProvider: TreeMenu.TreeMenuProvider,
+        builder: controller.InjectedControllerBuilder,
+        private addItemController: AddTreeMenuItemController,
+        private dragDropManager: DragDropManager) {
         super(bindings, treeMenuProvider, builder);
     }
 
@@ -37,6 +71,18 @@ export class EditTreeMenu extends TreeMenu.TreeMenu {
             }
         }
     }
+
+    public dragOver(evt: DragEvent) {
+        evt.preventDefault();
+    }
+
+    public drop(evt: DragEvent) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        evt.stopImmediatePropagation();
+        alert('Drop ' + this.dragDropManager.currentDrag.node.name + ' onto root');
+        this.dragDropManager.clearCurrentDrag();
+    }
 }
 
 class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
@@ -48,7 +94,8 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             AddTreeMenuItemController,
             EditTreeMenuItemController,
             DeleteTreeMenuItemController,
-            ChooseMenuItemController];
+            ChooseMenuItemController,
+            DragDropManager];
     }
 
     public constructor(
@@ -58,9 +105,89 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         private addItemController: AddTreeMenuItemController,
         private editItemController: EditTreeMenuItemController,
         private deleteItemController: DeleteTreeMenuItemController,
-        private chooseItemController: ChooseMenuItemController)
-    {
+        private chooseItemController: ChooseMenuItemController,
+        private dragDropManager: DragDropManager) {
         super(bindings, folderMenuItemInfo, builder);
+    }
+
+    public dragStart(evt: DragEvent) {
+        evt.stopPropagation();
+        evt.stopImmediatePropagation();
+        this.dragDropManager.currentDrag = this;
+    }
+
+    public dragOver(evt: DragEvent) {
+        //if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) { //Be sure we are a folder.
+            evt.preventDefault();
+        //}
+    }
+
+    public drop(evt: DragEvent) {
+        var to: TreeMenu.TreeMenuNode;
+        var from: TreeMenu.TreeMenuNode;
+        var toParent: TreeMenu.TreeMenuNode;
+        var fromParent: TreeMenu.TreeMenuNode;
+        var loc: number;
+        var toLoc: number;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+        evt.stopImmediatePropagation();
+
+        //Set this to false anywhere to cancel the drop.
+        var safeDrop = true;
+
+        //Clear drag data
+        var droppedItem = this.dragDropManager.currentDrag;
+        this.dragDropManager.clearCurrentDrag();
+        //alert('Drop ' + droppedItem.folderMenuItemInfo.name + ' onto ' + this.folderMenuItemInfo.name);
+
+        //Remove old item
+        from = droppedItem.node;
+        fromParent = from.parent;
+        to = this.folderMenuItemInfo.original;
+
+        if (TreeMenu.IsFolder(to)) {
+            toParent = to;
+            toLoc = -1; //Insert last if dropped on folder.
+        }
+        else {
+            toParent = to.parent;
+            toLoc = toParent.children.indexOf(to);            
+        }
+
+        //Make sure we are not trying to move a parent to a child, if so that won't really work.
+        var current = toParent;
+        while (current) {
+            if (current == from) {
+                //One of the parents of toParent was the actual item we are moving, cancel drop
+                safeDrop = false;
+            }
+            current = current.parent;
+        }
+
+        if (safeDrop) {
+            //Remove from old parent
+            loc = fromParent.children.indexOf(from);
+            if (loc !== -1) {
+                fromParent.children.splice(loc, 1);
+            }
+
+            //Insert into new parent
+            if (toLoc !== -1) {
+                toParent.children.splice(toLoc, 0, from);
+            }
+            else {
+                toParent.children.push(from);
+            }
+            from.parent = toParent;
+
+            //Refresh menu
+            droppedItem.rebuildParent(fromParent);
+            if (toParent !== fromParent) {
+                this.rebuildParent(toParent);
+            }
+        }
     }
 
     public moveUp(evt: Event) {
@@ -183,6 +310,10 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
                 throw err;
             }
         }
+    }
+
+    public get node(): TreeMenu.TreeMenuNode {
+        return this.folderMenuItemInfo.original;
     }
 
     /**
@@ -428,7 +559,7 @@ class MenuItemChoiceController {
     }
 
     constructor(private chooseMenuController: ChooseMenuItemController, private row) {
-        
+
     }
 
     public itemChosen(evt) {
@@ -487,4 +618,5 @@ export function addServices(services: controller.ServiceCollection) {
     services.tryAddShared(DeleteTreeMenuItemController, DeleteTreeMenuItemController);
     services.tryAddShared(ChooseMenuItemController, ChooseMenuItemController);
     services.tryAddTransient(MenuItemChoiceController, MenuItemChoiceController);
+    services.tryAddShared(DragDropManager, DragDropManager);
 }
