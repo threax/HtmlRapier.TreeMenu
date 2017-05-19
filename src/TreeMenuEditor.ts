@@ -98,6 +98,8 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             DragDropManager];
     }
 
+    private dragToggle: controller.OnOffToggle;
+
     public constructor(
         bindings: controller.BindingCollection,
         folderMenuItemInfo: TreeMenu.MenuItemModel,
@@ -108,6 +110,8 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         private chooseItemController: ChooseMenuItemController,
         private dragDropManager: DragDropManager) {
         super(bindings, folderMenuItemInfo, builder);
+        this.dragToggle = bindings.getToggle("drag");
+        this.dragToggle.off();
     }
 
     public dragStart(evt: DragEvent) {
@@ -118,8 +122,19 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
 
     public dragOver(evt: DragEvent) {
         //if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) { //Be sure we are a folder.
-            evt.preventDefault();
+        evt.preventDefault();
+        evt.stopImmediatePropagation();
+        evt.stopPropagation();
+        this.dragToggle.on();
         //}
+    }
+
+    public dragLeave(evt: DragEvent) {
+        //if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) { //Be sure we are a folder.
+        //evt.preventDefault();
+        //}
+        //alert('drag leave');
+        this.dragToggle.off();
     }
 
     public drop(evt: DragEvent) {
@@ -133,6 +148,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         evt.preventDefault();
         evt.stopPropagation();
         evt.stopImmediatePropagation();
+        this.dragToggle.off();
 
         //Set this to false anywhere to cancel the drop.
         var safeDrop = true;
@@ -153,7 +169,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         }
         else {
             toParent = to.parent;
-            toLoc = toParent.children.indexOf(to);            
+            toLoc = toParent.children.indexOf(to);   
         }
 
         //Make sure we are not trying to move a parent to a child, if so that won't really work.
@@ -171,6 +187,11 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             loc = fromParent.children.indexOf(from);
             if (loc !== -1) {
                 fromParent.children.splice(loc, 1);
+            }
+
+            //If the parent node is the same recalculate the to location with the removed element
+            if (fromParent == toParent) {
+                toLoc = toParent.children.indexOf(to);
             }
 
             //Insert into new parent
