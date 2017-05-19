@@ -15,6 +15,29 @@ import * as TreeMenu from "hr.treemenu.TreeMenu";
 import * as toggles from "hr.toggles";
 import { ExternalPromise } from 'hr.externalpromise';
 
+class Point {
+    x: number;
+    y: number;
+}
+
+/**
+ * Get coords from the event in document coords.
+ * Adapted from https://www.quirksmode.org/js/events_properties.html#position
+ * @param e
+ */
+function getDocumentCoords(e: MouseEvent): Point {
+    var point = new Point();
+    if (e.pageX || e.pageY) {
+        point.x = e.pageX;
+        point.y = e.pageY;
+    }
+    else if (e.clientX || e.clientY) {
+        point.x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+        point.y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+    }
+    return point;
+}
+
 export class DragDropManager {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
         return [];
@@ -85,6 +108,51 @@ export class EditTreeMenu extends TreeMenu.TreeMenu {
     }
 }
 
+enum DropModes {
+    above,
+    inside,
+    below,
+}
+
+class DropToggle extends toggles.TypedToggle{
+    /**
+     * Get the states this toggle can activate.
+     */
+    public getPossibleStates(): string[] {
+        return ['above', 'below', 'inside', 'off'];
+    }
+
+    public above(): void {
+        return this.applyState('above');
+    }
+
+    public below(): void {
+        return this.applyState('below');
+    }
+
+    public inside(): void {
+        return this.applyState('inside');
+    }
+
+    public off(): void {
+        return this.applyState('off');
+    }
+
+    public setDropMode(mode: DropModes) {
+        switch (mode) {
+            case DropModes.above:
+                this.above();
+                break;
+            case DropModes.inside:
+                this.inside();
+                break;
+            case DropModes.below:
+                this.below();
+                break;
+        }
+    }
+}
+
 class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
         return [
@@ -98,7 +166,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             DragDropManager];
     }
 
-    private dragToggle: controller.OnOffToggle;
+    private dragToggle: DropToggle;
 
     public constructor(
         bindings: controller.BindingCollection,
@@ -110,7 +178,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         private chooseItemController: ChooseMenuItemController,
         private dragDropManager: DragDropManager) {
         super(bindings, folderMenuItemInfo, builder);
-        this.dragToggle = bindings.getToggle("drag");
+        this.dragToggle = bindings.getCustomToggle("drag", new DropToggle());
         this.dragToggle.off();
     }
 
@@ -121,19 +189,14 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
     }
 
     public dragOver(evt: DragEvent) {
-        //if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) { //Be sure we are a folder.
         evt.preventDefault();
         evt.stopImmediatePropagation();
         evt.stopPropagation();
-        this.dragToggle.on();
-        //}
+
+        this.dragToggle.setDropMode(this.getDropMode(evt));
     }
 
     public dragLeave(evt: DragEvent) {
-        //if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) { //Be sure we are a folder.
-        //evt.preventDefault();
-        //}
-        //alert('drag leave');
         this.dragToggle.off();
     }
 
@@ -350,6 +413,30 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             return true;
         }
         return false;
+    }
+
+    private getDropMode(evt: DragEvent) {
+        var coords = getDocumentCoords(evt);
+        var boundRect = evt.srcElement.getBoundingClientRect();
+        var localY = coords.y - boundRect.top;
+
+        if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) {
+            var third = boundRect.height / 3;
+            if (localY < third) {
+                return DropModes.above;
+            }
+            else if (localY < third * 2) {
+                return DropModes.inside;
+            }
+        }
+        else {
+            var half = boundRect.height / 2;
+            if (localY < half) {
+                return DropModes.above;
+            }
+        }
+
+        return DropModes.below;
     }
 }
 
