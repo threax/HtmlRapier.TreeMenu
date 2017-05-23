@@ -114,7 +114,7 @@ enum DropModes {
     below,
 }
 
-class DropToggle extends toggles.TypedToggle{
+class DragDropToggle extends toggles.TypedToggle{
     /**
      * Get the states this toggle can activate.
      */
@@ -166,7 +166,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
             DragDropManager];
     }
 
-    private dragToggle: DropToggle;
+    private dragToggle: DragDropToggle;
 
     public constructor(
         bindings: controller.BindingCollection,
@@ -178,7 +178,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         private chooseItemController: ChooseMenuItemController,
         private dragDropManager: DragDropManager) {
         super(bindings, folderMenuItemInfo, builder);
-        this.dragToggle = bindings.getCustomToggle("drag", new DropToggle());
+        this.dragToggle = bindings.getCustomToggle("drag", new DragDropToggle());
         this.dragToggle.off();
     }
 
@@ -207,6 +207,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         var fromParent: TreeMenu.TreeMenuNode;
         var loc: number;
         var toLoc: number;
+        var dropMode = this.getDropMode(evt);
 
         evt.preventDefault();
         evt.stopPropagation();
@@ -226,7 +227,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         fromParent = from.parent;
         to = this.folderMenuItemInfo.original;
 
-        if (TreeMenu.IsFolder(to)) {
+        if (dropMode == DropModes.inside && TreeMenu.IsFolder(to)) {
             toParent = to;
             toLoc = -1; //Insert last if dropped on folder.
         }
@@ -259,6 +260,9 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
 
             //Insert into new parent
             if (toLoc !== -1) {
+                if (dropMode === DropModes.below) {
+                    ++toLoc;
+                }
                 toParent.children.splice(toLoc, 0, from);
             }
             else {
