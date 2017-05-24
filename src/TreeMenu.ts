@@ -81,7 +81,7 @@ export class TreeMenuProvider {
         this.menuStorageId = 'treemenu-cache-' + url;
         this.sessionData = storage.getSessionObject(this.menuStorageId, null);
 
-        if (this.sessionData === null || this.sessionData.version !== version) {
+        if (this.sessionData === null || version === undefined || this.sessionData.version !== version) {
             //No data, get it
             try {
                 rootNode = await http.get<TreeMenuFolderNode>(url, this.fetcher);
@@ -270,6 +270,7 @@ export class TreeMenu {
             provider: this.treeMenuProvider
         };
         this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+        this.treeMenuProvider.menuRebuilt();
     }
 }
 
