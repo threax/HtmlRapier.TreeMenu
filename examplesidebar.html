@@ -3,15 +3,15 @@
             <div class="mainTreeMenu" data-hr-controller="treeMenu" data-hr-config-urlroot="~/" data-hr-config-menu="{{pathBase}}/menus/mainMenu.json" data-hr-config-scrollelement="#sidebar-wrapper" data-hr-model-component="sidebarMenuComponent">
                 <ul class="sidebarMenu" data-hr-model="childItems" data-hr-model-component="sidebarMenuComponent">
                     <template data-hr-component="sidebarMenuComponent">
-                        <li class="folder" data-hr-on-dragover="dragOver" data-hr-on-dragleave="dragLeave" data-hr-on-drop="drop" data-hr-style-above="background-color:red;" data-hr-style-inside="background-color:blue;" data-hr-style-below="background-color:green;" data-hr-toggle="drag">
-                            <div data-hr-on-dragstart="dragStart" class="item" data-hr-on-click="toggleMenuItem" data-hr-toggle="current" data-hr-class-on="currentFolder">
+                        <li draggable="true" data-hr-on-dragstart="dragStart" class="folder" data-hr-on-dragover="dragOver" data-hr-on-dragleave="dragLeave" data-hr-on-drop="drop" data-hr-style-above="background-color:red;" data-hr-style-inside="background-color:blue;" data-hr-style-below="background-color:green;" data-hr-toggle="drag">
+                            <div  class="item" data-hr-on-click="toggleMenuItem" data-hr-toggle="current" data-hr-class-on="currentFolder">
                                 <span data-hr-toggle="children" class="glyphicon" data-hr-class-on="glyphicon-folder-open" data-hr-class-off="glyphicon-folder-close"></span> {{name}}
                             </div>
                             <div class="children" data-hr-model="children" data-hr-model-component="sidebarMenuComponent" data-hr-toggle="children" data-hr-class-on="expanded" data-hr-style-off="display:none;"></div>
                         </li>
                     </template>
                     <template data-hr-variant="link">
-                        <div data-hr-toggle="drag" data-hr-style-above="background-color:red;" data-hr-style-inside="background-color:blue;" data-hr-style-below="background-color:green;">
+                        <div draggable="true" data-hr-toggle="drag" data-hr-style-above="background-color:red;" data-hr-style-inside="background-color:blue;" data-hr-style-below="background-color:green;">
                             <li class="link" data-hr-toggle="current" data-hr-class-on="currentLink" data-hr-on-dragstart="dragStart" data-hr-on-dragover="dragOver" data-hr-on-dragleave="dragLeave" data-hr-on-drop="drop">
                                 <a href="{{urlRoot}}{{link}}" target="{{target}}">{{name}}</a>
                             </li>
