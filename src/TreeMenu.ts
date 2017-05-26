@@ -57,18 +57,17 @@ export interface MenuItemModel {
 
 export class TreeMenuProvider {
     public static get InjectorArgs(): controller.DiFunction<any>[] {
-        return [Fetcher];
+        return [Fetcher, TreeMenuStorage];
     }
 
     private sessionData: TreeMenuSessionData;
-    private menuStorageId: string;
     private urlRoot: string;
     private version: string;
     private pageUrl: uri.Uri;
     protected saveUrl: string;
 
-    public constructor(private fetcher: Fetcher) {
-
+    public constructor(private fetcher: Fetcher, private menuStore: TreeMenuStorage) {
+        this.menuStore.setSerializerOptions(TreeMenuProvider.serializerReplace);
     }
 
     public async loadMenu(url: string, version: string, urlRoot: string) {
@@ -78,8 +77,7 @@ export class TreeMenuProvider {
         this.pageUrl = new uri.Uri();
         this.urlRoot = urlRoot;
         this.version = version;
-        this.menuStorageId = 'treemenu-cache-' + url;
-        this.sessionData = storage.getSessionObject(this.menuStorageId, null);
+        this.sessionData = this.menuStore.getValue(null);
 
         if (this.sessionData === null || version === undefined || this.sessionData.version !== version) {
             //No data, get it
@@ -120,7 +118,7 @@ export class TreeMenuProvider {
             scrollLeft: scrollLeft,
             scrollTop: scrollTop
         };
-        storage.storeObjectInSession<TreeMenuSessionData>(this.menuStorageId, cacheData, this.serializerReplace);
+        this.menuStore.setValue(cacheData);
     }
 
     /**
@@ -156,7 +154,7 @@ export class TreeMenuProvider {
         }
     }
 
-    private serializerReplace(key: string, value: any) {
+    private static serializerReplace(key: string, value: any) {
         return key !== 'parent' && key !== 'currentPage' ? value : undefined;
     }
 
@@ -350,7 +348,20 @@ export class TreeMenuItem {
     }
 }
 
+export class TreeMenuStorage extends storage.JsonStorage<TreeMenuSessionData> {
+    constructor(storageDriver: storage.IStorageDriver) {
+        super(storageDriver)
+    }
+}
+
+/**
+ * Add the default services for the tree menu. Note this will create a default storage for the
+ * menu in sesssion storage called defaultTreeMenu. If you only have one tree menu per page
+ * this should be fine, otherwise inject your own TreeMenuStorage with a unique name.
+ * @param services
+ */
 export function addServices(services: controller.ServiceCollection) {
+    services.tryAddTransient(TreeMenuStorage, s => new TreeMenuStorage(new storage.SessionStorageDriver("defaultTreeMenu"))); //Create a default session storage, users are encouraged to make their own
     services.tryAddTransient(TreeMenuProvider, TreeMenuProvider);
     services.tryAddTransient(TreeMenu, TreeMenu);
     services.tryAddTransient(TreeMenuItem, TreeMenuItem);

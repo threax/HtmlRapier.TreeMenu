@@ -114,7 +114,7 @@ enum DropModes {
     below,
 }
 
-class DragDropToggle extends toggles.TypedToggle{
+class DragDropToggle extends toggles.TypedToggle {
     /**
      * Get the states this toggle can activate.
      */
@@ -233,7 +233,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
         }
         else {
             toParent = to.parent;
-            toLoc = toParent.children.indexOf(to);   
+            toLoc = toParent.children.indexOf(to);
         }
 
         //Make sure we are not trying to move a parent to a child, if so that won't really work.
@@ -721,7 +721,14 @@ export class ChooseMenuItemController {
     }
 }
 
+/**
+ * Add the default services for the tree menu in edit mode. Note this will create a default storage for the
+ * menu in sesssion storage called defaultTreeMenu. If you only have one tree menu per page
+ * this should be fine, otherwise inject your own TreeMenuStorage with a unique name.
+ * @param services
+ */
 export function addServices(services: controller.ServiceCollection) {
+    services.tryAddTransient(TreeMenu.TreeMenuStorage, s => new TreeMenu.TreeMenuStorage(new storage.SessionStorageDriver("defaultTreeMenu"))); //Create a default session storage, users are encouraged to make their own
     services.tryAddTransient(TreeMenu.TreeMenuProvider, TreeMenu.TreeMenuProvider);
     services.tryAddTransient(TreeMenu.TreeMenu, EditTreeMenu);
     services.tryAddTransient(TreeMenu.TreeMenuItem, EditTreeMenuItem);
