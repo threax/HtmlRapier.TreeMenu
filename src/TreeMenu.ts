@@ -246,7 +246,7 @@ export class TreeMenu {
         }
 
         //Build child tree nodes
-        this.rebuildMenu();
+        this.buildMenu();
 
         //Now that the menu is built, restore the scroll position
         if (this.scrollElement) {
@@ -255,7 +255,7 @@ export class TreeMenu {
         }
     }
 
-    protected rebuildMenu() {
+    private buildMenu() {
         //Build child tree nodes
         var rootNode = this.treeMenuProvider.RootNode;
         var rootData: MenuItemModel = {
@@ -268,6 +268,10 @@ export class TreeMenu {
             provider: this.treeMenuProvider
         };
         this.rootModel.setData(rootData, this.builder.createOnCallback(TreeMenuItem), RootVariant);
+    }
+
+    protected rebuildMenu() {
+        this.buildMenu();
         this.treeMenuProvider.menuRebuilt();
     }
 }
