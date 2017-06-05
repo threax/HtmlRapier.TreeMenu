@@ -233,7 +233,7 @@ export class TreeMenu {
         await this.treeMenuProvider.loadMenu(this.ajaxurl, this.version, this.urlRoot);
 
         //Only cache menus that loaded correctly
-        window.onbeforeunload = e => {
+        window.addEventListener("beforeunload", e => {
             //Cheat to handle scroll position, using handles
             var scrollLeft = 0;
             var scrollTop = 0;
@@ -243,7 +243,7 @@ export class TreeMenu {
             }
 
             this.treeMenuProvider.cacheMenu(scrollLeft, scrollTop);
-        }
+        });
 
         //Build child tree nodes
         this.buildMenu();
