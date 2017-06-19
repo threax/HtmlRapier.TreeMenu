@@ -138,7 +138,7 @@ export class TreeMenuProvider {
             }
         }
         else { //Page link, check to see if it is the current page
-            node.currentPage = node.link === this.pageUrl.path;
+            node.currentPage = (this.urlRoot + node.link) === this.pageUrl.path;
             if (node.currentPage) {
                 //If page is the current page, set it and all its parents to expanded
                 this.setParentsCurrent(node.parent);
