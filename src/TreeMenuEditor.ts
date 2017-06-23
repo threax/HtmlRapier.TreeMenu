@@ -565,7 +565,7 @@ export class AddTreeMenuItemController {
         }
     }
 
-    private nameChanged(evt) {
+    public nameChanged(evt: Event): void {
         if (this.autoTypeUrl) {
             var data = this.createLinkModel.getData();
             var urlName = encodeURI(data.name.replace(/\s|[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, (x) => this.replaceUrl(x))).toLowerCase();
