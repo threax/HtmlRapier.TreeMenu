@@ -463,6 +463,7 @@ export class AddTreeMenuItemController {
     private questionModel: controller.Model<TreeMenu.TreeMenuNode>;
     private createFolderModel: controller.Model<CreateFolderModel>;
     private currentNode: TreeMenu.TreeMenuFolderNode;
+    private currentNodePath: string;
     private toggleGroup: toggles.Group;
     private questionToggle;
     private createFolderToggle;
@@ -494,6 +495,7 @@ export class AddTreeMenuItemController {
 
         this.currentPromise = new ExternalPromise<TreeMenu.TreeMenuNode>();
         this.currentNode = node;
+        this.currentNodePath = this.getFolderPath(this.currentNode);
 
         this.toggleGroup.activate(this.questionToggle);
         this.questionModel.setData(node);
@@ -556,6 +558,13 @@ export class AddTreeMenuItemController {
         this.currentPromise = null;
     }
 
+    private cleanString(s: string): string {
+        if (s) {
+            return encodeURI(s.replace(/\s|[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, (x) => this.replaceUrl(x))).toLowerCase();
+        }
+        return "";
+    }
+
     private replaceUrl(x) {
         switch (x) {
             case ' ':
@@ -565,12 +574,19 @@ export class AddTreeMenuItemController {
         }
     }
 
+    private getFolderPath(node: TreeMenu.TreeMenuFolderNode) {
+        if (node.parent) {
+            return this.getFolderPath(node.parent) + this.cleanString(node.name) + "/";
+        }
+        return "/";
+    }
+
     public nameChanged(evt: Event): void {
         if (this.autoTypeUrl) {
             var data = this.createLinkModel.getData();
-            var urlName = encodeURI(data.name.replace(/\s|[`~!@#$%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, (x) => this.replaceUrl(x))).toLowerCase();
+            var urlName = this.currentNodePath + this.cleanString(data.name);
             this.linkAutoTypeModel.setData({
-                link: '/' + urlName
+                link: urlName
             });
         }
     }
