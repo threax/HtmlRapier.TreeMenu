@@ -421,7 +421,7 @@ class EditTreeMenuItem extends TreeMenu.TreeMenuItem {
 
     private getDropMode(evt: DragEvent) {
         var coords = getDocumentCoords(evt);
-        var boundRect = evt.srcElement.getBoundingClientRect();
+        var boundRect = (<Element>evt.target).getBoundingClientRect();
         var localY = coords.y - boundRect.top;
 
         if (TreeMenu.IsFolder(this.folderMenuItemInfo.original)) {
