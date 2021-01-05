@@ -1,16 +1,8 @@
 "use strict";
 
 import * as storage from "hr.storage";
-import * as http from "hr.http";
 import * as controller from "hr.controller";
-import * as EventDispatcher from 'hr.eventdispatcher';
-import * as ObservableList from 'hr.observablelist';
-import { Fetcher } from 'hr.fetcher';
-import { WindowFetch } from 'hr.windowfetch';
-import { CacheBuster } from 'hr.cachebuster';
 import * as iter from 'hr.iterable';
-import * as domQuery from 'hr.domquery';
-import * as uri from 'hr.uri';
 import * as TreeMenu from "hr.treemenu.TreeMenu";
 import * as toggles from "hr.toggles";
 import { ExternalPromise } from 'hr.externalpromise';

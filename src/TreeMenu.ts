@@ -1,13 +1,9 @@
 ﻿"use strict";
 
 import * as storage from "hr.storage";
-import * as http from "hr.http";
 import * as controller from "hr.controller";
-import * as EventDispatcher from 'hr.eventdispatcher';
-import * as ObservableList from 'hr.observablelist';
 import { Fetcher } from 'hr.fetcher';
 import { WindowFetch } from 'hr.windowfetch';
-import { CacheBuster } from 'hr.cachebuster';
 import * as iter from 'hr.iterable';
 import * as domQuery from 'hr.domquery';
 import * as uri from 'hr.uri';
@@ -82,7 +78,16 @@ export class TreeMenuProvider {
         if (this.sessionData === null || version === undefined || this.sessionData.version !== version) {
             //No data, get it
             try {
-                rootNode = await http.get<TreeMenuFolderNode>(url, this.fetcher);
+                const response = await this.fetcher.fetch(url, {
+                    method: "GET",
+                    cache: "no-cache",
+                    headers: {
+                        "Content-Type": "application/json; charset=UTF-8"
+                    },
+                    credentials: "include"
+                });
+                const text = await response.text();
+                rootNode = JSON.parse(text) as TreeMenuFolderNode;
                 rootNode.expanded = true;
             }
             catch (err) {
