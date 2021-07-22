@@ -1,6 +1,6 @@
 {
   "name": "htmlrapier.treemenu",
-  "version": "7.0.0-pre.0",
+  "version": "7.0.0",
   "private": false,
   "dependencies": {
     "htmlrapier": ">=25.0.0"
