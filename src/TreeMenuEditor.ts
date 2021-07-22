@@ -1,11 +1,11 @@
 "use strict";
 
-import * as storage from "hr.storage";
-import * as controller from "hr.controller";
-import * as iter from 'hr.iterable';
-import * as TreeMenu from "hr.treemenu.TreeMenu";
-import * as toggles from "hr.toggles";
-import { ExternalPromise } from 'hr.externalpromise';
+import * as storage from 'htmlrapier/src/storage';
+import * as controller from 'htmlrapier/src/controller';
+import * as iter from 'htmlrapier/src/iterable';
+import * as TreeMenu from './TreeMenu';
+import * as toggles from 'htmlrapier/src/toggles';
+import { ExternalPromise } from 'htmlrapier/src/externalpromise';
 
 class Point {
     x: number;

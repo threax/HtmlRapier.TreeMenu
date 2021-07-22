@@ -1,9 +1,13 @@
 {
   "name": "htmlrapier.treemenu",
-  "version": "6.1.2",
+  "version": "7.0.0-pre.0",
   "private": false,
   "dependencies": {
-    "htmlrapier": ">=8.0.1"
+    "htmlrapier": ">=25.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "files": [
+    "src/**/*",
+    "tsimport.json"
+  ]
 }

@@ -1,12 +1,11 @@
 ﻿"use strict";
 
-import * as storage from "hr.storage";
-import * as controller from "hr.controller";
-import { Fetcher } from 'hr.fetcher';
-import { WindowFetch } from 'hr.windowfetch';
-import * as iter from 'hr.iterable';
-import * as domQuery from 'hr.domquery';
-import * as uri from 'hr.uri';
+import * as storage from "htmlrapier/src/storage";
+import * as controller from "htmlrapier/src/controller";
+import { Fetcher } from 'htmlrapier/src/fetcher';
+import * as iter from 'htmlrapier/src/iterable';
+import * as domQuery from 'htmlrapier/src/domquery';
+import * as uri from 'htmlrapier/src/uri';
 
 export interface TreeMenuFolderNode {
     //Data storage
